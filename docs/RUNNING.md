@@ -9,45 +9,51 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-## 2. Telegram configuration (optional)
+## 2. Train the model
+
+The original Excel training workbook has been exported to a portable CSV in the repository. Train the Random Forest model before running inference:
+
+```bash
+cd src/fruiture
+python model_regression.py
+```
+
+This creates `banana_regression_model.pkl` and `banana_scaler.pkl` locally.
+
+## 3. Telegram configuration (optional)
+
 Copy:
 
 ```text
-src/fruiture/BotAPI.example.txt -> src/fruiture/BotAPI.txt
+BotAPI.example.txt -> BotAPI.txt
 ```
 
-Then replace the placeholders with a newly created bot token and chat ID. `BotAPI.txt` is git-ignored.
+Then replace the placeholders with a newly generated Telegram bot token and your chat ID. `BotAPI.txt` is git-ignored and must never be committed.
 
-## 3. Firmware
-Open the appropriate sketches in Arduino IDE and replace `YOUR_WIFI_SSID` / `YOUR_WIFI_PASSWORD` locally before flashing. Do not commit real credentials.
+## 4. Firmware
 
-Recommended final sketches:
+Open the appropriate sketches in Arduino IDE and replace `YOUR_WIFI_SSID` / `YOUR_WIFI_PASSWORD` locally before flashing:
+
 - `firmware/sensor_node/mqtt_dht11.ino`
 - `firmware/camera_final/camara_final_sleep.ino`
 - `firmware/servo/servo_1.ino`
 
-## 4. Start backend/dashboard
+## 5. Start the backend and dashboard
+
+From `src/fruiture`:
 
 ```bash
-cd src/fruiture
 python data_collector.py
 ```
 
-The Flask dashboard runs at `http://localhost:5001`.
+The Flask dashboard runs at `http://localhost:5001` and the backend subscribes to the `fruiture/#` MQTT namespace.
 
-## 5. Run prediction
-Once `ml_input.json` has been generated:
+## 6. Run prediction
+
+After the collector generates `ml_input.json`:
 
 ```bash
 python prediction.py
 ```
 
-This loads the included model/scaler, publishes the servo command and (when configured) sends a Telegram notification.
-
-## 6. Retrain model
-
-```bash
-python model_regression.py
-```
-
-The training script expects `dataset3 app.xlsx` in its working directory and writes the model/scaler files locally.
+The predictor loads the locally generated model/scaler, predicts Day 1–5, publishes a servo angle via MQTT, and optionally sends a Telegram notification.
