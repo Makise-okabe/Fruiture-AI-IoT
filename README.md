@@ -2,37 +2,33 @@
 
 **An integrated AI-IoT system for real-time banana ripeness detection and prediction using multi-sensor data fusion.**
 
-<p align="center">
-  <img src="assets/prototype.jpg" width="700" alt="Fruiture prototype hardware">
-</p>
-
-Fruiture combines an **ESP32**, **DHT11 temperature/humidity sensor**, **MQ-2 gas/VOC sensor**, and **ESP32-CAM** with MQTT communication, OpenCV image processing, a Random Forest regression model, a physical servo gauge, Telegram alerts and a Flask monitoring dashboard. The project was developed as a proof-of-concept for low-cost, objective freshness monitoring and food-waste reduction.
+Fruiture combines **ESP32 embedded sensing, DHT11 temperature/humidity measurements, MQ-2 gas/VOC sensing, ESP32-CAM visual monitoring, MQTT, OpenCV, Random Forest regression, a servo FruitMeter, Telegram alerts and a Flask dashboard** into an end-to-end freshness-monitoring prototype.
 
 > **Team:** Du Yanzhang, Fang Tianchi, Feng Yilong, Liu Hengyi  
-> **Project report date:** 20 Nov 2025
+> **Final report:** 20 Nov 2025
 
-## What the system does
+## System concept
 
-Fruiture observes banana ripening from three complementary signals:
+Banana ripeness is observed through three complementary modalities:
 
 - **Environmental:** temperature and humidity from DHT11
-- **Chemical:** gas/VOC proxy from MQ-2
-- **Visual:** banana skin colour from ESP32-CAM + OpenCV
+- **Chemical:** VOC-related gas signal from MQ-2
+- **Visual:** banana-skin colour from ESP32-CAM + OpenCV
 
-The backend fuses these readings into a 7-feature ML input (`max_gas`, `avg_gas`, `temperature`, `humidity`, `R`, `G`, `B`) and predicts a **Day 1-Day 5** ripeness index.
+The backend converts these readings into the final ML feature vector:
 
-<p align="center">
-  <img src="assets/system_diagram.png" width="780" alt="Fruiture system architecture">
-</p>
+`[Max_gas, Average_Gas, temperature, humidity, R, G, B]`
+
+and predicts a **Day 1–5 ripeness stage**.
 
 ## End-to-end architecture
 
 ```mermaid
 flowchart LR
-    A[DHT11 + MQ-2\nESP32] -->|temp / humidity / gas| B[MQTT Broker]
+    A[DHT11 + MQ-2\nESP32] -->|Temperature / Humidity / Gas| B[MQTT Broker]
     C[ESP32-CAM] -->|Base64 JPEG| B
     B --> D[data_collector.py]
-    D --> E[(CSV logs + images)]
+    D --> E[CSV logging]
     D --> F[OpenCV colour analysis]
     D --> G[ml_input.json]
     G --> H[prediction.py]
@@ -43,9 +39,9 @@ flowchart LR
     D --> L[Flask Dashboard\nFruitApp]
 ```
 
-## Machine-learning result
+## Machine-learning results
 
-The report compares Polynomial Regression with Random Forest Regression. Random Forest was selected as the deployment model. Reported performance:
+The final report compares Polynomial Regression with Random Forest Regression. Random Forest was selected for deployment.
 
 | Metric | Random Forest |
 |---|---:|
@@ -54,60 +50,56 @@ The report compares Polynomial Regression with Random Forest Regression. Random 
 | Final test RMSE | **0.324 day** |
 | Final test R² | **0.915** |
 
-These results come from a **small proof-of-concept dataset (10 bananas over Day 1-Day 5)**, so they should not be interpreted as production-level generalization.
-
-## User-facing outputs
-
-<table>
-<tr>
-<td width="33%" align="center"><img src="assets/fruit_meter.jpg" width="250"><br><b>FruitMeter</b><br>Physical servo ripeness gauge</td>
-<td width="33%" align="center"><img src="assets/fruit_bot.jpg" width="180"><br><b>FruitBot</b><br>Telegram updates & spoilage alerts</td>
-<td width="33%" align="center"><img src="assets/fruit_app.jpg" width="300"><br><b>FruitApp</b><br>Flask live dashboard</td>
-</tr>
-</table>
+These results come from a **small proof-of-concept dataset involving 10 bananas across Day 1–5**, so they should not be interpreted as production-level generalization.
 
 ## Computer-vision pipeline
 
-`banana_detector_no_grey.py` performs lightweight color-based analysis instead of a deep neural network:
+`banana_detector_no_grey.py` implements a lightweight OpenCV pipeline instead of a deep neural network:
 
-1. Convert BGR → HSV and smooth the frame.
-2. Apply CLAHE to normalize illumination.
-3. Segment green, yellow, brown and black banana-skin regions.
-4. Reject low-saturation gray/background regions.
-5. Clean masks with morphology and extract the largest valid contour.
-6. Calculate RGB statistics, color proportions and a visual ripeness score.
+1. Convert BGR → HSV.
+2. Apply CLAHE brightness normalization.
+3. Segment green, yellow, brown and black peel regions.
+4. Reject low-saturation gray/background areas.
+5. Apply morphological cleanup and contour extraction.
+6. Calculate RGB statistics, colour proportions and a visual ripeness score.
 
-This keeps the pipeline computationally light while providing visual features to the regression model.
+## IoT and backend
+
+The sensor/camera nodes publish through the public HiveMQ broker using the `fruiture/` MQTT namespace. `data_collector.py` subscribes to the streams, logs readings, reconstructs camera frames, extracts visual features and periodically generates the ML input used by `prediction.py`.
+
+The prediction then drives two user-facing outputs:
+
+- **FruitMeter:** servo-actuated physical Day 1–5 ripeness gauge
+- **FruitBot:** Telegram ripeness updates and spoilage warnings
+
+A Flask **FruitApp** dashboard provides live and historical monitoring.
 
 ## Repository structure
 
 ```text
 Fruiture-AI-IoT/
-├── assets/                  # Prototype, dashboard, bot, architecture images
+├── README.md
+├── SECURITY.md
+├── requirements.txt
 ├── data/
-│   ├── live/                # Example runtime logs
-│   ├── raw_sensor/          # Day 1-Day 5 sensor CSVs
-│   ├── sample_images/       # Representative camera frames
-│   └── training/            # Training workbook
+│   └── README.md
 ├── docs/
-│   ├── CS3237_Group13_Report.pdf
-│   ├── Fruiture_Presentation.pptx
+│   ├── REPORT_SUMMARY.md
 │   ├── TECHNICAL_OVERVIEW.md
 │   ├── MQTT_TOPICS.md
-│   └── RUNNING.md
+│   ├── RUNNING.md
+│   └── SOURCE_ARCHIVES.md
 ├── firmware/
-│   ├── sensor_node/         # DHT11 + MQ-2 MQTT firmware
-│   ├── camera_final/        # Final ESP32-CAM MQTT firmware
-│   ├── servo/               # FruitMeter actuator firmware
-│   └── experiments/         # Earlier camera prototypes
-├── hardware/                # CAD / fabrication files
+│   ├── sensor_node/mqtt_dht11.ino
+│   ├── camera_final/camara_final_sleep.ino
+│   └── servo/servo_1.ino
 └── src/fruiture/
     ├── data_collector.py
     ├── banana_detector_no_grey.py
-    ├── prediction.py
     ├── model_regression.py
-    ├── banana_regression_model.pkl
-    ├── banana_scaler.pkl
+    ├── prediction.py
+    ├── dataset3_app.csv
+    ├── BotAPI.example.txt
     └── templates/index.html
 ```
 
@@ -115,46 +107,59 @@ Fruiture-AI-IoT/
 
 ```bash
 python -m venv .venv
-# activate the environment, then:
+# activate the environment
 pip install -r requirements.txt
 cd src/fruiture
+python model_regression.py
 python data_collector.py
 ```
 
-The dashboard is served at **http://localhost:5001**. After an `ml_input.json` summary is generated, run:
+`model_regression.py` regenerates the Random Forest model and scaler from the included CSV dataset. The dashboard is then available at:
+
+`http://localhost:5001`
+
+After `data_collector.py` produces `ml_input.json`:
 
 ```bash
 python prediction.py
 ```
 
-See [`docs/RUNNING.md`](docs/RUNNING.md) for the full setup, including firmware and Telegram configuration.
+See [`docs/RUNNING.md`](docs/RUNNING.md) for the complete setup.
 
-## MQTT
+## MQTT topics
 
-The prototype communicates through `broker.hivemq.com:1883` using the `fruiture/` topic namespace. See [`docs/MQTT_TOPICS.md`](docs/MQTT_TOPICS.md) for the topic map. A private broker and unique namespace should be used outside a classroom/demo environment.
+Key topics include:
 
-## Hardware / experimental design
+- `fruiture/temp`
+- `fruiture/humidity`
+- `fruiture/mq2gas`
+- `fruiture/Base64image`
+- `fruiture/ml_input`
+- `fruiture/servo_angle`
 
-The report describes sensor calibration and a controlled sensing enclosure. DHT11 measurements were calibrated against a reference hygrometer, MQ-2 measurements used warm-up/baseline calibration and averaging, and the camera operated under fixed illumination. A 470 µF capacitor was added across the supply rails to reduce voltage dips caused by the MQ-2 heater load.
+See [`docs/MQTT_TOPICS.md`](docs/MQTT_TOPICS.md) for details.
 
-Data were collected in two batches of five bananas. The project uses a fixed 10-minute feature window for the live-demo pipeline; max/average gas, averaged temperature/humidity and RGB features feed the model.
+## Experimental design
+
+The project collected data in two batches of five bananas. A fixed 10-minute feature window was used for the live demonstration pipeline. Mutual Information analysis supported the use of gas, environmental and RGB features, with maximum/average gas readings being the most informative signals in the collected dataset.
 
 ## Live demonstration
 
-During the reported demo, a Day-4 banana was correctly predicted as Day 4; the servo gauge moved to 4, the Telegram bot sent the status, and the web dashboard displayed the live measurements.
+In the reported live demo, a Day-4 banana was correctly predicted as Day 4. The FruitMeter moved to 4, the Telegram bot sent the corresponding status update, and the web dashboard displayed the live sensor information.
 
-<p align="center">
-  <img src="assets/demo.jpg" width="600" alt="Fruiture live demonstration">
-</p>
+## Limitations and future work
 
-## Limitations & next steps
+The final report identifies several practical limitations:
 
-The report identifies four main limitations: gas leakage sensitivity, inconsistent banana placement, lighting drift as batteries discharge, and a small/non-diverse dataset. Proposed extensions include larger and more diverse datasets, periodic model retraining, support for other fruit types, and cloud data storage/analytics.
+- MQ-2 sensitivity to enclosure leakage
+- variation in banana placement relative to sensors
+- lighting drift as the battery voltage declines
+- limited dataset size and banana diversity
 
-## Project report
+Future extensions include larger and more diverse datasets, periodic model retraining, additional fruit types and cloud-based storage/analytics.
 
-The complete technical report is available here: [`docs/CS3237_Group13_Report.pdf`](docs/CS3237_Group13_Report.pdf).
+For a report-derived technical overview, see [`docs/REPORT_SUMMARY.md`](docs/REPORT_SUMMARY.md).
 
 ## Security
 
-No live credentials are included in this repository. Wi-Fi values were replaced with placeholders and Telegram credentials are represented only by `BotAPI.example.txt`. See [`SECURITY.md`](SECURITY.md).
+**No live credentials are committed.** Wi-Fi credentials are placeholders and Telegram configuration is represented by `BotAPI.example.txt`. See [`SECURITY.md`](SECURITY.md).
