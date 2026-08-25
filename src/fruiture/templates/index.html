@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🍌 Fruiture Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { background:#f8fafc; font-family:'Segoe UI',sans-serif; }
+    h2 { margin-top:20px; color:#343a40; }
+    .card { border-radius:16px; margin:20px auto; box-shadow:0 3px 10px rgba(0,0,0,0.1); }
+    .gas-chart { height:250px; }
+    .status-banner { background:linear-gradient(90deg,#ffefba,#ffffff); padding:15px; border-radius:12px; margin-bottom:20px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+  </style>
+</head>
+<body>
+<div class="container text-center">
+  <h2>🍌 Fruiture Smart Banana Dashboard</h2>
+  <p class="text-muted mb-4">IoT + AI Ripeness Monitoring</p>
+
+  {% if records|length > 0 %}
+  {% set last = records[-1] %}
+  <div class="status-banner">
+    <h5>📅 <b>{{ last.timestamp }}</b> | 🌡️ {{ last.temperature }} °C | 💧 {{ last.humidity }} % | 🧪 {{ last.gas }} ppm</h5>
+    {% if last.ripeness %}
+      <h5>🍌 Ripeness: <b>{{ last.ripeness }}</b>/100
+        {% if last.ripeness|float < 40 %} 🌿 Very Fresh
+        {% elif last.ripeness|float < 70 %} 🍌 Ripe
+        {% else %} ⚠️ Overripe {% endif %}
+      </h5>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="card p-3">
+    <h5>📈 Gas Concentration (Corrected PPM)</h5>
+    <canvas id="gasChart" class="gas-chart"></canvas>
+  </div>
+
+  {% for r in records|reverse %}
+  <div class="card p-3">
+    <h5 class="text-primary">{{ r.timestamp }}</h5>
+    <p>🌡️ <b>{{ r.temperature }}</b> °C | 💧 <b>{{ r.humidity }}</b> % | 🧪 <b>{{ r.gas }}</b> ppm</p>
+    {% if r.ripeness %}<p>🍌 Ripeness <b>{{ r.ripeness }}</b>/100</p>{% endif %}
+    {% if r.avg_R %}<p>🎨 RGB ({{ r.avg_R }}, {{ r.avg_G }}, {{ r.avg_B }})</p>{% endif %}
+    <p>🟩 {{ r['green_%'] }}% 🟨 {{ r['yellow_%'] }}% 🟫 {{ r['brown_%'] }}% ⬛ {{ r['black_%'] }}%</p>
+    {% if r.processed_image_path %}<img src="/images/{{ r.processed_image_path }}" width="320" class="rounded shadow-sm">{% endif %}
+  </div>
+  {% endfor %}
+  <footer>Fruiture © 2025 | Real-time Banana Monitor</footer>
+</div>
+
+<script>
+async function drawGasChart(){
+  const res=await fetch("/data");
+  const data=await res.json();
+  const labels=data.map(x=>x.timestamp);
+  const gas=data.map(x=>x.gas);
+  const ctx=document.getElementById("gasChart").getContext("2d");
+  if(window.gasChartInstance)window.gasChartInstance.destroy();
+  window.gasChartInstance=new Chart(ctx,{
+    type:"line",
+    data:{labels:labels,datasets:[{label:"Gas PPM (corrected)",data:gas,borderColor:"orange",borderWidth:2,fill:false,tension:0.25,pointRadius:2}]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+  });
+}
+drawGasChart();
+setInterval(drawGasChart,5000);
+</script>
+</body>
+</html>
